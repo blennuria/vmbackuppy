@@ -1,0 +1,12 @@
+[project]
+name = "vmbackuppy"
+version = "0.1.0"
+description = "Free vmbackupmanager alternative for VictoriaMetrics"
+requires-python = ">=3.14"
+dependencies = [
+    "boto3",
+    "croniter>=6.2.0",
+]
+
+[project.scripts]
+vmbackuppy = "main:main"

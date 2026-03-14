@@ -1,0 +1,101 @@
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMSingle
+metadata:
+  name: vmsingle
+  namespace: observability
+spec:
+  retentionPeriod: "3"  # months
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    resources:
+      requests:
+        storage: 50Gi
+
+  # --- vmbackuppy restore initContainer ---
+  # Checks for restore mark on every pod start.
+  # If mark exists: runs vmrestore, deletes mark, exits 0.
+  # If no mark: exits 0 immediately (normal startup path).
+  initContainers:
+    - name: vmbackuppy-restore
+      image: vmbackuppy:latest  # same image as sidecar
+      args: ["restore"]
+      env:
+        - name: BACKUP_DESTINATION
+          value: s3://my-bucket/vm-backups
+        # Uncomment for S3-compatible storage (MinIO, etc.)
+        # - name: S3_ENDPOINT
+        #   value: http://minio.minio:9000
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: s3-backup-credentials
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: s3-backup-credentials
+              key: secret-key
+      volumeMounts:
+        - name: data
+          mountPath: /victoria-metrics-data
+          # NOT readOnly — vmrestore writes data
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+
+  # --- vmbackuppy sidecar ---
+  containers:
+    - name: vmbackuppy
+      image: vmbackuppy:latest  # replace with your registry
+      env:
+        # VM_URL must match the port VMSingle listens on (check extraArgs or operator defaults)
+        - name: VM_URL
+          value: http://localhost:8429
+        - name: BACKUP_DESTINATION
+          value: s3://my-bucket/vm-backups
+        - name: BACKUP_INTERVAL
+          value: "1h"
+        - name: KEEP_LAST_HOURLY
+          value: "24"
+        - name: KEEP_LAST_DAILY
+          value: "7"
+        - name: KEEP_LAST_WEEKLY
+          value: "4"
+        - name: KEEP_LAST_MONTHLY
+          value: "12"
+        # Uncomment for S3-compatible storage (MinIO, etc.)
+        # - name: S3_ENDPOINT
+        #   value: http://minio.minio:9000
+        # AWS credentials from secret
+        - name: AWS_ACCESS_KEY_ID
+          valueFrom:
+            secretKeyRef:
+              name: s3-backup-credentials
+              key: access-key
+        - name: AWS_SECRET_ACCESS_KEY
+          valueFrom:
+            secretKeyRef:
+              name: s3-backup-credentials
+              key: secret-key
+      volumeMounts:
+        - name: data
+          mountPath: /victoria-metrics-data
+          readOnly: true
+      resources:
+        requests:
+          cpu: 50m
+          memory: 128Mi
+        limits:
+          cpu: 500m
+          memory: 256Mi
+      livenessProbe:
+        httpGet:
+          path: /healthz
+          port: 8491
+        initialDelaySeconds: 10
+        periodSeconds: 30
