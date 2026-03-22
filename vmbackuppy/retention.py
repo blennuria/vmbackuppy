@@ -16,14 +16,19 @@ def enforce_retention(config: Config, storage: S3Storage) -> None:
     }
 
     for period, keep in policies.items():
-        if keep <= 0:
+        if keep < 0:
             continue
 
         names = storage.list_backup_names(period)
-        if len(names) <= keep:
+        if not names:
             continue
 
-        to_delete = names[:-keep]
+        if keep == 0:
+            to_delete = names
+        elif len(names) <= keep:
+            continue
+        else:
+            to_delete = names[:-keep]
         log.info(
             "Retention %s: %d backups found, keeping %d, deleting %d",
             period, len(names), keep, len(to_delete),
