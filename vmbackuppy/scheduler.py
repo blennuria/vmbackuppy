@@ -253,6 +253,7 @@ class Scheduler:
                         body = json.dumps({"backup": mark.backup, "created_at": mark.created_at}, indent=2)
                         self._respond(200, body.encode() + b"\n", "application/json")
                 else:
+                    log.warning("Unmatched %s path: %r", self.command, self.path)
                     self.send_response(404)
                     self.end_headers()
 
@@ -294,6 +295,7 @@ class Scheduler:
                     body = json.dumps({"backup": mark.backup, "created_at": mark.created_at}, indent=2)
                     self._respond(200, body.encode() + b"\n", "application/json")
                 else:
+                    log.warning("Unmatched %s path: %r", self.command, self.path)
                     self.send_response(404)
                     self.end_headers()
 
@@ -302,6 +304,7 @@ class Scheduler:
                     restore_mgr.delete_mark()
                     self._respond(200, b"{}\n", "application/json")
                 else:
+                    log.warning("Unmatched %s path: %r", self.command, self.path)
                     self.send_response(404)
                     self.end_headers()
 
